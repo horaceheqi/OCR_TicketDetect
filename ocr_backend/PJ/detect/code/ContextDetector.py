@@ -1,6 +1,6 @@
 import os
 import cv2
-import shutil
+import time
 import numpy as np
 import tensorflow as tf
 import PJ.detect.code.cfg as cfg
@@ -54,6 +54,7 @@ class Detector:
             :param output_path:	 裁剪的文本行的保存位置
             :param output_path2: 检测结果示意大图保存位置
         """
+        start_run_time = time.time()
         ori_wight, ori_height = img.size
         d_wight, d_height = resize_image(img, cfg.max_predict_img_size)
         scale_ratio_w = d_wight / ori_wight
@@ -74,11 +75,17 @@ class Detector:
         y[:, :, :3] = Detector.sigmoid(y[:, :, :3])
         cond = np.greater_equal(y[:, :, 0], cfg.pixel_threshold)
         activation_pixels = np.where(cond)  # fixme 返回元祖tuple类型 a[0]保存了纵坐标 a[1]保存横坐标
-        quad_scores, quad_after_nms = nms(y, activation_pixels)
+        end_run_time = time.time()
+        print("检测-网络所需时间：%f s" % (end_run_time - start_run_time))
 
+        start_nms_time = time.time()
+        quad_scores, quad_after_nms = nms(y, activation_pixels)
+        end_nms_time = time.time()
+        print("检测-nms所需时间：%f s" % (end_nms_time - start_nms_time))
+
+        start_filter_time = time.time()
         x[0] = np.uint8(x[0])
         with image.array_to_img(x[0]) as im:  # Image.fromarray(x[n]) error ?
-
             quad_im = im.copy()
             # 过滤掉score小于零的
             score_list = []
@@ -134,26 +141,27 @@ class Detector:
 
             quad_draw = ImageDraw.Draw(img)
             s = 100
-            f = open(output_path2 + "/{}.{}".format(_name, "txt"), mode='w', encoding='utf8')
-            for quad_after_nms_in_one_line in quad_after_nms_sorted_list:
-                for geo, i in zip(quad_after_nms_in_one_line, range(len(quad_after_nms_in_one_line))):
-                    geo /= [scale_ratio_w, scale_ratio_h]
-                    quad_draw.line([tuple(geo[0]),
-                                    tuple(geo[1]),
-                                    tuple(geo[2]),
-                                    tuple(geo[3]),
-                                    tuple(geo[0])], width=2, fill='blue')
-                    # 裁剪文本行并保存文本行图片
-                    Detector.cut_text_line(geo, img_ori_array_copy, output_path, _name, s + i + 1)
-                    f.write(str(s + i + 1) + ".jpg,"
-                            + str(int(geo[0][0])) + ',' + str(int(geo[0][1])) + ','
-                            + str(int(geo[1][0])) + ',' + str(int(geo[1][1])) + ','
-                            + str(int(geo[2][0])) + ',' + str(int(geo[2][1])) + ','
-                            + str(int(geo[3][0])) + ',' + str(int(geo[3][1])) + '\n')
-                s = s + 100
-            f.close()
+            with open(output_path2 + "/{}.{}".format(_name, "txt"), mode='w', encoding='utf8') as f:
+                for quad_after_nms_in_one_line in quad_after_nms_sorted_list:
+                    for geo, i in zip(quad_after_nms_in_one_line, range(len(quad_after_nms_in_one_line))):
+                        geo /= [scale_ratio_w, scale_ratio_h]
+                        quad_draw.line([tuple(geo[0]),
+                                        tuple(geo[1]),
+                                        tuple(geo[2]),
+                                        tuple(geo[3]),
+                                        tuple(geo[0])], width=2, fill='blue')
+                        # 裁剪文本行并保存文本行图片
+                        Detector.cut_text_line(geo, img_ori_array_copy, output_path, _name, s + i + 1)
+                        f.write(str(s + i + 1) + ".jpg,"
+                                + str(int(geo[0][0])) + ',' + str(int(geo[0][1])) + ','
+                                + str(int(geo[1][0])) + ',' + str(int(geo[1][1])) + ','
+                                + str(int(geo[2][0])) + ',' + str(int(geo[2][1])) + ','
+                                + str(int(geo[3][0])) + ',' + str(int(geo[3][1])) + '\n')
+                    s = s + 100
             # 保存画框的检测结果图
             img.save(os.path.join(output_path2, "{}.{}".format(_name, "jpg")))
+        end_filter_time = time.time()
+        print("检测-筛选画框所需时间：%f s" % (end_filter_time - start_filter_time))
         return "{}.{}".format(_name, "jpg")
 
 
