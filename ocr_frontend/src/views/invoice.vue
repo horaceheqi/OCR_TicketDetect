@@ -11,6 +11,10 @@
           <el-button type="primary">选择图片</el-button>
         </el-upload>
         <el-button type="primary" @click="handleRunDetect">检测识别</el-button>
+        <el-switch
+          v-model="imageType" active-color="#13ce66" inactive-color="#ff4949" active-text="票据文档类" inactive-text="卡证类"
+          style="margin-left: 20px">
+        </el-switch>
         <!--<input name="file" type="file" accept="image/*" @change="uploads"/>-->
       </el-row>
     </el-header>
@@ -54,19 +58,20 @@
         imageUrl: '../static/template.png',
         imageName: '',
         activeNames: ['1'],
-        result: ''
+        result: '',
+        imageType: true,
       }
     },
     methods: {
       // 文件上传
       El_upload(content) {
         let form = new FormData();
-        form.append('file', content.file);
+        form.append('imageName', content.file);
         this.$axios.post(content.action, form).then(res => {
           if (res.data.status != 200) {
             this.$message.error('图片文件上传失败');
           } else {
-            this.imageName = res.data.data.file_name;
+            this.imageName = res.data.data.fileName;
             this.imageUrl = "../static/image_upload/" + this.imageName;
             this.result = '';
             this.$message.success('图片文件上传成功');
@@ -87,11 +92,11 @@
         console.log(val);
       },
       handleRunDetect() {
-        this.$axios.post('http://127.0.0.1:5000/detect', {image_name: this.imageName}).then(res => {
+        this.$axios.post('http://127.0.0.1:5000/detect', {image_name: this.imageName, image_type: this.imageType}).then(res => {
           this.$message.success('检测识别成功');
           console.log(res);
-          this.result = res.data.data;
-          this.imageUrl = "../static/image_result/" + res.data.file_name;
+          this.result = res.data.fileData;
+          this.imageUrl = "../static/image_result/" + res.data.fileName;
         }).catch(res => {
           this.$message.error('检测识别失败');
           console.log(res)
