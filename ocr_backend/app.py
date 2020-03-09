@@ -56,7 +56,7 @@ recognize = Recognizer(constant.recognizer_usually)
 # position_adjuster = PositionAdjuster(constant.rp_mask_txt, rp_detector, recognizer)
 
 
-def run_detect(project_path, image_path):
+def run_detect(project_path, image_path, image_type):
     _, _image = os.path.split(image_path)
     _name = _image.split('.')[0]
     # image = cv2.imread(image_path)
@@ -81,7 +81,7 @@ def run_detect(project_path, image_path):
     detect_img = Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
     start_context_time = time.time()
 
-    res_img = detector.run(detect_img, _name, res_path, draw_box_path)  # 检测文本行
+    res_img = detector.run(detect_img, _name, image_type, res_path, draw_box_path)  # 检测文本行
     end_context_time = time.time()
     print("检测所需时间：%f s" % (end_context_time - start_context_time))
     image_file_list = glob.glob(res_path + "/*.*")
@@ -112,7 +112,7 @@ def run_detect(project_path, image_path):
 @app.route('/upload', methods=['POST', 'GET'])
 def self_upload():
     if request.method == 'POST':
-        f = request.files['file']
+        f = request.files['imageName']
         print('上传图片：', f.filename)
         # 检查文件upload的类型
         if not (f and allow_file(f.filename)):
@@ -134,8 +134,8 @@ def self_upload():
             pm.writeImage(upload_path)
             pdf_doc.close()
             os.remove(pdf_path)
-        return jsonify({'status': 200, 'data': {'file_name': file_name}})
-    return jsonify({'status': 500, 'data': {'file_name': ''}})
+        return jsonify({'status': 200, 'data': {'fileName': file_name}})
+    return jsonify({'status': 500, 'data': {'fileName': ''}})
 
 
 # 检测/识别
@@ -145,11 +145,12 @@ def self_detect():
         # 项目路径
         data = json.loads(request.get_data())
         image_name = data['image_name']
+        image_type = data['image_type']
         image_path = os.path.join(constant.FRONTEND_PATH, 'static/image_upload', image_name)
-        _data, _img = run_detect(constant.FRONTEND_PATH, image_path)
+        _data, _img = run_detect(constant.FRONTEND_PATH, image_path, image_type)
         # result = run_detect()
-        return jsonify({'status': 200, 'data': _data, 'file_name': _img})
-    return jsonify({'status': 500, 'data': {'result': 'Error'}})
+        return jsonify({'status': 200, 'fileData': _data, 'fileName': _img})
+    return jsonify({'status': 500, 'fileData': {'result': 'Error'}, 'fileName': ''})
 
 
 if __name__ == '__main__':
